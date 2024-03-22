@@ -39,11 +39,14 @@ def get_tw_df(guild_url):
     # Get tw opponents
     tw_opponents = [x.find_all('a')[1].text for x in tw_soup.find_all('tr')][10:]
     # Get tw opponents GP
-    tw_opponents_gps = [int(x.find_all('td')[2].text.replace('\n', '').replace(',', '')) for x in tw_soup.find_all('tr')][10:]
+    tw_opponents_gps = [int(x.find_all('td')[2].text.replace('\n', '')
+                            .replace(',', '')) for x in tw_soup.find_all('tr')][10:]
     # Get tw opponent scores
-    tw_opponents_scores = [x.find_all('td')[3].text.replace(',', '').split('-')[-1].strip() for x in tw_soup.find_all('tr')][10:]
+    tw_opponents_scores = [x.find_all('td')[3].text.replace(',', '')
+                           .split('-')[-1].strip() for x in tw_soup.find_all('tr')][10:]
     # Get tw guild scores
-    tw_guild_scores = [x.find_all('td')[3].text.replace(',', '').split('-')[0].strip() for x in tw_soup.find_all('tr')][10:]
+    tw_guild_scores = [x.find_all('td')[3].text.replace(',', '').split('-')[0]
+                       .strip() for x in tw_soup.find_all('tr')][10:]
     # Get tw dates
     tw_dates = [x.find_all('td')[-2].text for x in tw_soup.find_all('tr')][10:]
     # Get tw GP
@@ -177,154 +180,153 @@ def get_account_df(filtered_data, ally_code_list):
     return df_account, account_names
 
 
+def get_ships_data(i, ally_code_list, account_names, ships_data):
+    ship_url = 'https://swgoh.gg{}ships/'.format(ally_code_list[i])
+    ship_soup = get_soup(ship_url)
+    ship_roster = ship_soup.find_all('div', {'class': 'col-sm-6 col-md-6 col-lg-4'})
+
+    for ship in ship_roster:
+        ships_data['account'].append(account_names[i])
+        # Get ship side
+        ship_side = str(ship.find('div', class_='collection-ship').get('class')[-1]).replace('collection-ship-',
+                                                                                             '').replace('-side',
+                                                                                                         '')
+        ships_data['side'].append(ship_side)
+        # Get ship name
+        ship_name = ship.find('a', class_='collection-ship-name-link').text.strip()
+        ships_data['name'].append(ship_name)
+        # Get ship stars
+        ship_stars = len(ship.find_all('div', class_='ship-portrait__star'))
+        ships_data['stars'].append(ship_stars)
+        # Get ship lvl
+        ship_lvl = ship.find('div', class_='ship-portrait__level').text.strip()
+        ships_data['level'].append(ship_lvl)
+        # Get ship gp
+        gp_title = ship.find('div', class_='collection-char-gp')['title']
+        ship_gp = gp_title.split()[1]
+        ships_data['gp'].append(ship_gp)
+        # Get ship img
+        ship_img = ship.find('img', class_='ship-portrait__img').get('src')
+        ships_data['img'].append(ship_img)
+        # Get ship pilots
+        ship_pilots = [pilot['title'] for pilot in ship.find_all('div', class_='character-portrait')]
+        ships_data['pilot'].append(ship_pilots)
+    return ships_data
+
+
+def get_units_data(i, ally_code_list, account_names, units_data):
+    unit_url = 'https://swgoh.gg{}characters/'.format(ally_code_list[i])
+    unit_soup = get_soup(unit_url)
+    unit_roster = unit_soup.find_all('div', {'class': 'col-xs-6 col-sm-3 col-md-3 col-lg-2'})
+    # Get data of units
+    for unit in unit_roster:
+        units_data['account'].append(account_names[i])
+        # Get names
+        name = unit.find('div', class_='collection-char-name').get_text(strip=True)
+        units_data['name'].append(name)
+        # Get if dark or light Side
+        match = re.search(r'collection-char-(\w+)-side', str(unit))
+        if match:
+            side = match.group(1)
+        else:
+            side = None
+        units_data['side'].append(side)
+        # Get amount of stars
+        star = str(unit).count('<div class="character-portrait__star character-portrait__star--size-normal"></div>')
+        units_data['stars'].append(star)
+        # Get unit lvl
+        regex = re.compile(r'character-portrait__level character-portrait__level--size-normal">\s*(\d+)\s*',
+                           re.IGNORECASE)
+        match = regex.search(str(unit))
+        if match:
+            level = int(match.group(1))
+        else:
+            level = 85
+        units_data['level'].append(level)
+        # Get gear tier
+        p = r'character-portrait__gframe character-portrait__gframe--size-normal character-portrait__gframe--tier-(\d+)'
+        regex = re.compile(p, re.IGNORECASE)
+        match = regex.search(str(unit))
+        if match:
+            gear = int(match.group(1))
+        else:
+            gear = 13
+        units_data['gear'].append(gear)
+        # Get relic Tier
+        regex = re.compile(r'character-portrait__relic[^>]*>\s*(\d+)', re.IGNORECASE)
+        match = regex.search(str(unit))
+        if match:
+            relic = int(match.group(1))
+        else:
+            relic = 0
+        units_data['relic'].append(relic)
+        # Get zetas
+        regex = re.compile(r'character-portrait__zeta[^>]*>\s*(\d+)', re.IGNORECASE)
+        match = regex.search(str(unit))
+        if match:
+            zeta = int(match.group(1))
+        else:
+            zeta = 0
+        units_data['zetas'].append(zeta)
+        # Get omicrons
+        regex = re.compile(r'character-portrait__omicron-count">(\d+)<', re.IGNORECASE)
+        match = regex.search(str(unit))
+        if match:
+            omi = int(match.group(1))
+        else:
+            omi = 0
+        units_data['omicrons'].append(omi)
+        # Get img url
+        match = re.search(r'<img.*?src="(.*?)".*?>', str(unit))
+        if match:
+            src = match.group(1)
+        else:
+            src = None
+        units_data['img'].append(src)
+        # Get unit gp
+        gp_title = [x.find('div', class_='collection-char-gp')['title'] for x in
+                    unit_soup.find_all('div', {'class': 'col-xs-6 col-sm-3 col-md-3 col-lg-2'})][0]
+        unit_gp = int(gp_title.split()[1].replace(',', ''))
+        units_data['gp'].append(unit_gp)
+    return units_data
+
+
 def get_unit_and_ship_df(ally_code_list, account_names):
-    # Start lists
-    unit_names, sides, stars, levels, gears, relics, zetas, omicrons = [], [], [], [], [], [], [], []
-    unit_imgs, accounts, units_gps = [], [], []
+    # Start dct
+    units_data = {
+        'account': [],
+        'name': [],
+        'side': [],
+        'stars': [],
+        'level': [],
+        'gear': [],
+        'relic': [],
+        'zetas': [],
+        'omicrons': [],
+        'img': [],
+        'gp': []
+    }
+    ships_data = {
+        'account': [],
+        'name': [],
+        'side': [],
+        'stars': [],
+        'level': [],
+        'gp': [],
+        'pilot': [],
+        'img': []
+    }
 
-    ships_names, ships_sides, ships_stars, ships_levels, ships_gps = [], [], [], [], []
-    ships_imgs, ships_pilots, ships_accounts = [], [], []
-
-    # Get data of account
+    # Get data of each account
     for i in range(len(account_names)):
-
-        unit_url = 'https://swgoh.gg{}characters/'.format(ally_code_list[i])
-        unit_soup = get_soup(unit_url)
-        unit_roster = unit_soup.find_all('div', {'class': 'col-xs-6 col-sm-3 col-md-3 col-lg-2'})
         print(f'Registrando a {account_names[i]}')
-        # Get data of units
-        for unit in unit_roster:
-            accounts.append(account_names[i])
-            # Get names
-            name = unit.find('div', class_='collection-char-name').get_text(strip=True)
-            unit_names.append(name)
-            # Get if dark or light Side
-            match = re.search(r'collection-char-(\w+)-side', str(unit))
-            if match:
-                side = match.group(1)
-            else:
-                side = None
-            sides.append(side)
-            # Get amount of stars
-            star = str(unit).count('<div class="character-portrait__star character-portrait__star--size-normal"></div>')
-            stars.append(star)
-            # Get unit lvl
-            regex = re.compile(r'character-portrait__level character-portrait__level--size-normal">\s*(\d+)\s*',
-                               re.IGNORECASE)
-            match = regex.search(str(unit))
-            if match:
-                level = int(match.group(1))
-            else:
-                level = 85
-            levels.append(level)
-            # Get gear tier
-            regex = re.compile(
-                r'character-portrait__gframe character-portrait__gframe--size-normal character-portrait__gframe--tier-(\d+)',
-                re.IGNORECASE)
-            match = regex.search(str(unit))
-            if match:
-                gear = int(match.group(1))
-            else:
-                gear = 13
-            gears.append(gear)
-            # Get relic Tier
-            regex = re.compile(r'character-portrait__relic[^>]*>\s*(\d+)', re.IGNORECASE)
-            match = regex.search(str(unit))
-            if match:
-                relic = int(match.group(1))
-            else:
-                relic = 0
-            relics.append(relic)
-            # Get zetas
-            regex = re.compile(r'character-portrait__zeta[^>]*>\s*(\d+)', re.IGNORECASE)
-            match = regex.search(str(unit))
-            if match:
-                zeta = int(match.group(1))
-            else:
-                zeta = 0
-            zetas.append(zeta)
-            # Get omicrons
-            regex = re.compile(r'character-portrait__omicron-count">(\d+)<', re.IGNORECASE)
-            match = regex.search(str(unit))
-            if match:
-                omi = int(match.group(1))
-            else:
-                omi = 0
-            omicrons.append(omi)
-            # Get img url
-            match = re.search(r'<img.*?src="(.*?)".*?>', str(unit))
-            if match:
-                src = match.group(1)
-            else:
-                src = None
-            unit_imgs.append(src)
-            # Get unit gp
-            gp_title = [x.find('div', class_='collection-char-gp')['title'] for x in
-                        unit_soup.find_all('div', {'class': 'col-xs-6 col-sm-3 col-md-3 col-lg-2'})][0]
-            unit_gp = int(gp_title.split()[1].replace(',', ''))
-            units_gps.append(unit_gp)
-
+        # Get units data
+        units_data = get_units_data(i, ally_code_list, account_names, units_data)
         # Get Ships Data
-
-        ship_url = 'https://swgoh.gg{}ships/'.format(ally_code_list[i])
-        ship_soup = get_soup(ship_url)
-        ship_roster = ship_soup.find_all('div', {'class': 'col-sm-6 col-md-6 col-lg-4'})
-
-        for ship in ship_roster:
-            ships_accounts.append(account_names[i])
-            # Get ship side
-            ship_side = str(ship.find('div', class_='collection-ship').get('class')[-1]).replace('collection-ship-',
-                                                                                                 '').replace('-side',
-                                                                                                             '')
-            ships_sides.append(ship_side)
-            # Get ship name
-            ship_name = ship.find('a', class_='collection-ship-name-link').text.strip()
-            ships_names.append(ship_name)
-            # Get ship stars
-            ship_stars = len(ship.find_all('div', class_='ship-portrait__star'))
-            ships_stars.append(ship_stars)
-            # Get ship lvl
-            ship_lvl = ship.find('div', class_='ship-portrait__level').text.strip()
-            ships_levels.append(ship_lvl)
-            # Get ship gp
-            gp_title = ship.find('div', class_='collection-char-gp')['title']
-            ship_gp = gp_title.split()[1]
-            ships_gps.append(ship_gp)
-            # Get ship img
-            ship_img = ship.find('img', class_='ship-portrait__img').get('src')
-            ships_imgs.append(ship_img)
-            # Get ship pilots
-            ship_pilots = [pilot['title'] for pilot in ship.find_all('div', class_='character-portrait')]
-            ships_pilots.append(ship_pilots)
-
-    # Create dictionary
-    ships_dct = {
-        'account': ships_accounts,
-        'name': ships_names,
-        'side': ships_sides,
-        'stars': ships_stars,
-        'level': ships_levels,
-        'gp': ships_gps,
-        'pilot': ships_pilots,
-        'img': ships_imgs
-    }
-    units_dct = {
-        'account': accounts,
-        'name': unit_names,
-        'side': sides,
-        'stars': stars,
-        'level': levels,
-        'gear': gears,
-        'relic': relics,
-        'zetas': zetas,
-        'omicrons': omicrons,
-        'img': unit_imgs,
-        'pg': units_gps
-    }
-
+        ships_data = get_ships_data(i, ally_code_list, account_names, ships_data)
     # Convert dictionary to DataFrame
-    df_units = pd.DataFrame(units_dct)
-    df_ships = pd.DataFrame(ships_dct)
+    df_units = pd.DataFrame(units_data)
+    df_ships = pd.DataFrame(ships_data)
 
     return df_units, df_ships
 
@@ -335,7 +337,6 @@ def create_report(guild_name, current_date, df, report):
 
 
 def main():
-
     """# Get Guild Data"""
 
     guild_url = 'https://swgoh.gg/g/WzhVGBluRkaYJyFUpWY17A/'
@@ -368,10 +369,10 @@ def main():
     # Get Account Data
     df_account, account_names = get_account_df(filtered_data, ally_code_list)
 
-    """#Get Unit & Ship Data"""
+    """# Get Unit & Ship Data"""
     df_units, df_ships = get_unit_and_ship_df(ally_code_list, account_names)
 
-    """#Create Files"""
+    """# Create Files"""
 
     # Create Account Report
     create_report(guild_name, current_date, df_account, 'Accounts')
@@ -394,7 +395,7 @@ def main():
     # Create xlsx
     file_name = guild_name + '_Reports_' + str(current_date) + '.xlsx'
     with pd.ExcelWriter(file_name) as writer:
-        # Frist page df_account
+        # First page df_account
         df_account.to_excel(writer, sheet_name='Accounts_Report', index=False)
         # Second page df_units
         df_units.to_excel(writer, sheet_name='Units_Report', index=False)
